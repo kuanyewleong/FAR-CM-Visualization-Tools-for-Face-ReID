@@ -1,4 +1,4 @@
-Face Recognition Analysis Tool
+# Face Recognition Analysis Tool
 Several scripts for face ReID metric, including an Interactive Streamlit app for comparing model-predicted face labels against ground-truth (GT) annotations across multiple videos or clips. It aligns frames from multiple files, matches predictions to GT via IoU ≥ 0.5, applies a user-set similarity score threshold, and visualizes:
 
 - Label counts (incl. wrong matches and unknown)
