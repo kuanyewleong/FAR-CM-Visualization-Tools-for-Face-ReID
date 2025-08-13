@@ -45,3 +45,30 @@ Array of identities, each containing a faces array with per-frame boxes:
   }
 ]
 ```
+Notes:
+
+Frame indexing: frame_id is 0-indexed within each GT file. The app automatically offsets subsequent files so frames remain unique when concatenated.
+
+Label usage: The app lowercases name for consistent matching.
+
+Predictions JSON
+Array of frames, each with an image filename and a faces list:
+```json
+[
+  {
+    "image": "frame0001.png",
+    "faces": [
+      {
+        "label": "alice",
+        "score": 0.91,
+        "bbox": {"x1": 12, "y1": 22, "x2": 59, "y2": 98}
+      }
+    ]
+  }
+]
+```
+Notes:
+
+Frame indexing: The app extracts the frame index from image via frame(\d+) (e.g., frame0042.png → 41 internally, converted to 0-index). If the pattern is missing, it falls back to the array index.
+
+BBox format: Predictions must provide {x1, y1, x2, y2}. (GT uses nested top_left/bottom_right and is converted internally.)
