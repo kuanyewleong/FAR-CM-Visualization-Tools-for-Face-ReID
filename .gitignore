@@ -12,8 +12,7 @@ error_log/
 video/
 *.jpg
 cache/
-/analysis_results
-/ground_truth
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
