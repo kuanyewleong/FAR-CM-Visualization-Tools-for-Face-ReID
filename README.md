@@ -75,26 +75,26 @@ BBox format: Predictions must provide {x1, y1, x2, y2}. (GT uses nested top_left
 
 ## Matching & Metrics (How It Works)
 1. IoU Matching (≥ 0.5)
-    For each predicted face in a frame, find the unmatched GT box with the highest IoU ≥ 0.5. If none, it’s considered a prediction with no GT match.
+    - For each predicted face in a frame, find the unmatched GT box with the highest IoU ≥ 0.5. If none, it’s considered a prediction with no GT match.
 
 1. Threshold Handling
-    If pred.score < threshold:
-        If it overlaps a GT: logged as GT → unknown (counted under Unknown).
-        If no GT overlap: logged as none → unknown.
-    If pred.score ≥ threshold:
-        If matched to GT:
-            Correct if pred.label == gt.label
-            Wrong otherwise (increments wrong matches)
-        If unmatched to GT: counted under pred.label with GT = none.
+    - If pred.score < threshold:
+        - If it overlaps a GT: logged as GT → unknown (counted under Unknown).
+        - If no GT overlap: logged as none → unknown.
+    - If pred.score ≥ threshold:
+        - If matched to GT:
+            - Correct if pred.label == gt.label
+            - Wrong otherwise (increments wrong matches)
+        - If unmatched to GT: counted under pred.label with GT = none.
 
 1. Outputs
-    Label Counts: Counts for each predicted label, plus wrong matches and unknown.
-    Confusion Matrix: GT (rows) vs Predicted (columns).
-        Excludes none/unknown from main GT row index for clarity; unknown/none are placed at the end of columns if present.
-    Per-cell annotations show:
-        Raw count
-        Share of the GT row (val / row_total)
-        Share of the Pred column (val / col_total)
-    Accuracies:
-        Acc (Pred) = diagonal sum / total predicted
-        Acc (GT) = diagonal sum / total GT
+    - Label Counts: Counts for each predicted label, plus wrong matches and unknown.
+    - Confusion Matrix: GT (rows) vs Predicted (columns).
+        - Excludes none/unknown from main GT row index for clarity; unknown/none are placed at the end of columns if present.
+    - Per-cell annotations show:
+        - Raw count
+        - Share of the GT row (val / row_total)
+        - Share of the Pred column (val / col_total)
+    - Accuracies:
+        - Acc (Pred) = diagonal sum / total predicted
+        - Acc (GT) = diagonal sum / total GT
