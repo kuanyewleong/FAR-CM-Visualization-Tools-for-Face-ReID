@@ -98,3 +98,42 @@ BBox format: Predictions must provide {x1, y1, x2, y2}. (GT uses nested top_left
     - Accuracies:
         - Acc (Pred) = diagonal sum / total predicted
         - Acc (GT) = diagonal sum / total GT
+
+## 🚀 Quickstart
+(for sscm_webUI_multi-files_show-GT-and-predicted-total_2.py)
+1) Install
+```bash
+Copy
+Edit
+# Create & activate a virtual environment (recommended)
+python -m venv .venv
+source .venv/bin/activate       # Windows: .venv\Scripts\activate
+
+# Install dependencies
+pip install streamlit matplotlib seaborn pandas
+```
+2) Run
+```bash
+Copy
+Edit
+streamlit run sscm_webUI_multi-files_show-GT-and-predicted-total_2.py
+```
+
+3) Use the App
+Open the Streamlit URL printed in your terminal.
+
+In the sidebar, upload:
+
+Multiple Prediction JSON files
+
+Multiple Ground Truth JSON files
+
+Adjust the Score Threshold slider.
+
+Explore:
+
+Label Counts bar chart
+
+Confusion Matrix with per-cell details & overall accuracies
+
+Score Histograms (Raw / Density)
