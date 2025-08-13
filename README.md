@@ -7,27 +7,41 @@ Several scripts for face ReID metric, including an Interactive Streamlit app for
 
 - Similarity score histograms (raw counts & normalized densities)
 
-✨ Features
-Multi-file ingestion & reindexing
-Concatenates multiple GT and prediction JSONs by reindexing frame IDs with offsets so sequences don’t collide.
+## ✨ Features
+- Multi-file ingestion & reindexing
+    Concatenates multiple GT and prediction JSONs by reindexing frame IDs with offsets so sequences don’t collide.
 
-Robust matching
-Greedy 1–1 assignment per frame using IoU ≥ 0.5 between predicted and GT boxes.
+- Robust matching
+    Greedy 1–1 assignment per frame using IoU ≥ 0.5 between predicted and GT boxes.
 
-Threshold-aware evaluation
-Predictions with score < threshold are counted as Unknown.
+- Threshold-aware evaluation
+    Predictions with score < threshold are counted as Unknown.
 
-Clear metrics
+- Clear metrics
+    Per-label counts (including wrong matches and unknown)
+    Confusion matrix with row/column share annotations
+    Accuracy by Predicted total and by GT total
 
-Per-label counts (including wrong matches and unknown)
+- Insightful score distributions
+    Raw-count and normalized-density histograms for Correct, Wrong, and Unknown groups.
 
-Confusion matrix with row/column share annotations
-
-Accuracy by Predicted total and by GT total
-
-Insightful score distributions
-Raw-count and normalized-density histograms for Correct, Wrong, and Unknown groups.
-
-🧩 Expected Input Formats
+## 🧩 Expected Input Formats
 Ground Truth (GT) JSON
 Array of identities, each containing a faces array with per-frame boxes:
+```json
+[
+  {
+    "id": "person_001",
+    "faces": [
+      {
+        "frame_id": 0,
+        "name": "Alice",
+        "bounding_box": {
+          "top_left": {"x": 100, "y": 120},
+          "bottom_right": {"x": 220, "y": 300}
+        }
+      }
+    ]
+  }
+]
+```
