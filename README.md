@@ -10,6 +10,8 @@ Several scripts for face ReID metric, including an Interactive Streamlit app for
 ## 📬 Key Objectives of this Work
 - Built to support evaluations where detection → recognition pipelines can introduce error propagation, and where score distributions matter for choosing operating points.
 
+![Screenshot of the main Interactive Streamlit app](image/analysis_tool.png)
+
 ## ✨ Features
 - Multi-file ingestion & reindexing
     Concatenates multiple GT and prediction JSONs by reindexing frame IDs with offsets so sequences don’t collide.
