@@ -7,6 +7,9 @@ Several scripts for face ReID metric, including an Interactive Streamlit app for
 
 - Similarity score histograms (raw counts & normalized densities)
 
+## 📬 Key Objectives of this Work
+- Built to support evaluations where detection → recognition pipelines can introduce error propagation, and where score distributions matter for choosing operating points.
+
 ## ✨ Features
 - Multi-file ingestion & reindexing
     Concatenates multiple GT and prediction JSONs by reindexing frame IDs with offsets so sequences don’t collide.
@@ -103,8 +106,6 @@ BBox format: Predictions must provide {x1, y1, x2, y2}. (GT uses nested top_left
 (for sscm_webUI_multi-files_show-GT-and-predicted-total_2.py)
 1) Install
 ```bash
-Copy
-Edit
 # Create & activate a virtual environment (recommended)
 python -m venv .venv
 source .venv/bin/activate       # Windows: .venv\Scripts\activate
@@ -114,8 +115,6 @@ pip install streamlit matplotlib seaborn pandas
 ```
 2) Run
 ```bash
-Copy
-Edit
 streamlit run sscm_webUI_multi-files_show-GT-and-predicted-total_2.py
 ```
 
@@ -138,3 +137,17 @@ streamlit run sscm_webUI_multi-files_show-GT-and-predicted-total_2.py
     The tool finds the max local index via image names (e.g., frame0123.png → 122), then offsets the next file by max_local + 1.
 
 This lets you analyze multiple clips as one continuous sequence.
+
+## ⚠️ Common Pitfalls & Tips
+- Mismatched formats:
+    - GT must use bounding_box.top_left / bottom_right structure.
+    - Predictions must use flat bbox with x1,y1,x2,y2.
+
+- Frame name pattern:
+    If predictions lack frameNNNN in image, the app falls back to array order; ensure ordering matches true time if you rely on this.
+
+- Case sensitivity:
+    Labels are lowercased for consistent comparison.
+
+- IoU threshold:
+    Fixed at 0.5 in the script. Adjust in code if your task requires a different overlap rule.
