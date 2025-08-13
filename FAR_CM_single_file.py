@@ -171,7 +171,7 @@ if __name__ == "__main__":
         gt_json = json.load(f)
     with open("analysis_results/ir101_webface12m/3pc_left/recognition_results_vid0.json", "r") as f:
         pred_json = json.load(f)
-    score_threshold = 0.6  # Set your threshold
+    score_threshold = 0.31  # Set your threshold
     far_value, y_true, y_pred = calculate_far_and_confusion(
         gt_json, pred_json, score_threshold=score_threshold, unknown_label="unknown"
     )
