@@ -120,20 +120,21 @@ streamlit run sscm_webUI_multi-files_show-GT-and-predicted-total_2.py
 ```
 
 3) Use the App
-Open the Streamlit URL printed in your terminal.
+    1. Open the Streamlit URL printed in your terminal.
+    1. In the sidebar, upload:
+        - Multiple Prediction JSON files
+        - Multiple Ground Truth JSON files
+    1. Adjust the Score Threshold slider.
+    1. Explore:
+        - Label Counts bar chart
+        - Confusion Matrix with per-cell details & overall accuracies
+        - Score Histograms (Raw / Density)
 
-In the sidebar, upload:
+## 📂 File Concatenation & Reindexing Details
+- GT files:
+    The tool tracks the max local frame_id in each GT file and offsets the next file’s frames by max_frame_id + 1.
 
-Multiple Prediction JSON files
+- Prediction files:
+    The tool finds the max local index via image names (e.g., frame0123.png → 122), then offsets the next file by max_local + 1.
 
-Multiple Ground Truth JSON files
-
-Adjust the Score Threshold slider.
-
-Explore:
-
-Label Counts bar chart
-
-Confusion Matrix with per-cell details & overall accuracies
-
-Score Histograms (Raw / Density)
+This lets you analyze multiple clips as one continuous sequence.
