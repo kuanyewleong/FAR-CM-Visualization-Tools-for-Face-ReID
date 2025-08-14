@@ -153,7 +153,7 @@ def plot_confusion_matrix(far_value, y_true, y_pred, unknown_label="unknown"):
     sns.heatmap(confusion_matrix, annot=annotations, fmt="", cmap="Blues", cbar=False, ax=ax)
     ax.set_title(
         f"GT vs Predicted | Acc: {accuracy_pred:.2%} ({correct_predictions}/{total_predicted})\n"
-        f"{' ' * 20}Actual FAR: {far_value:.2%}"
+        f"{' ' * 20}Actual FAR: {far_value:.2f}"
     )
     # ax.set_title(
     #     f"GT vs Predicted | Acc (Pred): {accuracy_pred:.2%} | Acc (GT): {accuracy_gt:.2%}\n"
