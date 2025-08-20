@@ -138,18 +138,32 @@ def optimal_bins(data):
     return min(max(n // 2, 10), 100) if n > 0 else 10
 
 # FAR calculation
-def compute_far(confusion_pairs, unknown_label="unknown"):
+def compute_far(confusion_matrix: pd.DataFrame, unknown_label: str = "unknown") -> float:
+    """
+    Compute FAR = (All false accepts excluding 'unknown') / (All correct predictions)
+
+    - False accepts: off-diagonal elements, excluding those involving 'unknown' in either axis
+    - Correct predictions: diagonal elements (label == label)
+
+    Returns 0.0 if correct predictions == 0
+    """
     false_accepts = 0
-    valid_attempts = 0
-    for gt_label, pred_label in confusion_pairs:
-        gt_label = gt_label.lower()
-        pred_label = pred_label.lower()
-        if pred_label != unknown_label:
-            valid_attempts += 1
-            if pred_label != gt_label:
-                false_accepts += 1
-    far = (false_accepts / valid_attempts) if valid_attempts > 0 else 0.0
+    correct_predictions = 0
+
+    for gt_label in confusion_matrix.index:
+        for pred_label in confusion_matrix.columns:
+            val = confusion_matrix.loc[gt_label, pred_label]
+            if unknown_label in {gt_label.lower(), pred_label.lower()}:
+                continue  # Skip any cell involving 'unknown'
+            if gt_label == pred_label:
+                correct_predictions += val
+            else:
+                false_accepts += val
+
+    far = false_accepts / correct_predictions if correct_predictions > 0 else 0.0
     return far
+
+
 
 # ---------- Streamlit UI ----------
 st.set_page_config(layout="wide")
@@ -213,7 +227,7 @@ if pred_files and gt_files:
 
         accuracy_pred = correct_predictions / total_predicted if total_predicted > 0 else 0
         accuracy_gt = correct_predictions / total_gt if total_gt > 0 else 0
-        far = compute_far(confusion_pairs, unknown_label="unknown")
+        far = compute_far(confusion_matrix, unknown_label="unknown")
 
         # Annotate the matrix
         annotations = confusion_matrix.copy().astype(str)
