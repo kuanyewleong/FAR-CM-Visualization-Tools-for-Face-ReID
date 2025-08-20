@@ -200,6 +200,13 @@ def calculate_far_and_confusion_from_maps(
     far = (false_accepts / valid_attempts) if valid_attempts > 0 else 0.0
     return far, y_true, y_pred
 
+# ----------------------------
+# Formatting helper
+def format_scientific(value):
+    formatted = "{:.2e}".format(value)       # e.g. "1.93e-04"
+    mantissa, exponent = formatted.split("e")
+    exponent = exponent.replace("+0", "+").replace("-0", "-")  # remove leading zeros
+    return f"{mantissa}e{int(exponent)}"     # int() removes any extra zero padding
 
 # ----------------------------
 # Plotting (unchanged)
@@ -244,7 +251,7 @@ def plot_confusion_matrix(far_value, y_true, y_pred, unknown_label="unknown"):
     sns.heatmap(confusion_matrix, annot=annotations, fmt="", cmap="Blues", cbar=False, ax=ax)
     ax.set_title(
         f"GT vs Predicted | Acc: {accuracy_pred:.2%} ({correct_predictions}/{total_predicted})\n"
-        f"{' ' * 20}Actual FAR: {far_value:.2f}"
+        f"{' ' * 20}Actual FAR: {format_scientific(far_value)}"
     )
     ax.set_xlabel("Predicted Label")
     ax.set_ylabel("Actual Label")
@@ -271,20 +278,24 @@ if __name__ == "__main__":
 
     # Example 3: explicit list
     gt_paths = [
-        "ground_truth/5pc/left",
-        "ground_truth/5pc/right"
+        "ground_truth/5pe/left",
+        "ground_truth/5pe/right"
     ]
     pred_paths = [
-        "analysis_results/ir101_webface12m/5pc_left",
-        "analysis_results/ir101_webface12m/5pc_right"
+        "analysis_results/ir101_webface12m/5pe_left",
+        "analysis_results/ir101_webface12m/5pe_right"
     ]
+    # pred_paths = [
+    #     "analysis_results/faceme_output/VH11/5pe_left",
+    #     "analysis_results/faceme_output/VH11/5pe_right"
+    # ]
 
     # Load and merge with correct per-file frame offsets
     gt_by_frame = load_gt_series(gt_paths)
     pred_by_frame = load_pred_series(pred_paths)
 
     # Compute metrics
-    score_threshold = 0.415
+    score_threshold = 0.2
     far_value, y_true, y_pred = calculate_far_and_confusion_from_maps(
         gt_by_frame, pred_by_frame,
         score_threshold=score_threshold,
