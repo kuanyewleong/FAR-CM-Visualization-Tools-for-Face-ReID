@@ -137,6 +137,20 @@ def optimal_bins(data):
     n = len(data)
     return min(max(n // 2, 10), 100) if n > 0 else 10
 
+# FAR calculation
+def compute_far(confusion_pairs, unknown_label="unknown"):
+    false_accepts = 0
+    valid_attempts = 0
+    for gt_label, pred_label in confusion_pairs:
+        gt_label = gt_label.lower()
+        pred_label = pred_label.lower()
+        if pred_label != unknown_label:
+            valid_attempts += 1
+            if pred_label != gt_label:
+                false_accepts += 1
+    far = (false_accepts / valid_attempts) if valid_attempts > 0 else 0.0
+    return far
+
 # ---------- Streamlit UI ----------
 st.set_page_config(layout="wide")
 st.title("Face Recognition Analysis Tool")
@@ -168,75 +182,59 @@ if pred_files and gt_files:
                     str(count), ha='center', va='bottom')
         st.pyplot(fig)
 
-    # Confusion Matrix
+    # Confusion Matrix & FAR
     with col2:
         st.subheader("Confusion Matrix (GT vs Predicted)")
+
         df = pd.DataFrame(confusion_pairs, columns=["Ground Truth", "Predicted"])
-
-        # ---- FAR (same logic as calculate_far_and_confusion_from_maps) ----
-        unknown_label = "unknown"
-        gt_lower = df["Ground Truth"].astype(str).str.lower()
-        pred_lower = df["Predicted"].astype(str).str.lower()
-
-        valid_mask = pred_lower != unknown_label.lower()
-        valid_attempts = int(valid_mask.sum())
-        false_accepts = int(((pred_lower != gt_lower) & valid_mask).sum())
-        far = (false_accepts / valid_attempts) if valid_attempts > 0 else 0.0
-        # -------------------------------------------------------------------
-
-        # Labels for display
         gt_labels = sorted(set(df["Ground Truth"]) - {"none", "unknown"})
         pred_labels = sorted(set(df["Predicted"]))
-        # Move 'unknown' and 'none' to end (for display clarity)
-        if "unknown" in pred_labels:
-            pred_labels.remove("unknown")
-            pred_labels.append("unknown")
-        if "none" in pred_labels:
-            pred_labels.remove("none")
-            pred_labels.append("none")
 
-        # Confusion matrix
+        # Move 'unknown' and 'none' to the end for display clarity
+        for special in ["unknown", "none"]:
+            if special in pred_labels:
+                pred_labels.remove(special)
+                pred_labels.append(special)
+
         confusion_matrix = pd.crosstab(
             df["Ground Truth"], df["Predicted"],
             rownames=["GT"], colnames=["Predicted"],
             dropna=False
         ).reindex(index=gt_labels, columns=pred_labels, fill_value=0)
 
-        # Totals & accuracy
+        # Metrics
         total_predicted = confusion_matrix.sum().sum()
         total_gt = confusion_matrix.sum(axis=1).sum()
-
         correct_predictions = sum(
             confusion_matrix.loc[label, label]
             for label in confusion_matrix.index
             if label in confusion_matrix.columns
         )
 
-        accuracy_pred = correct_predictions / total_predicted if total_predicted > 0 else 0.0
-        accuracy_gt = correct_predictions / total_gt if total_gt > 0 else 0.0
+        accuracy_pred = correct_predictions / total_predicted if total_predicted > 0 else 0
+        accuracy_gt = correct_predictions / total_gt if total_gt > 0 else 0
+        far = compute_far(confusion_pairs, unknown_label="unknown")
 
-        # Annotations: value + fractions by GT row and Pred column
+        # Annotate the matrix
+        annotations = confusion_matrix.copy().astype(str)
         row_totals = confusion_matrix.sum(axis=1)
         col_totals = confusion_matrix.sum(axis=0)
-        annotations = confusion_matrix.copy().astype(str)
+
         for i in range(confusion_matrix.shape[0]):
             for j in range(confusion_matrix.shape[1]):
                 val = confusion_matrix.iloc[i, j]
                 gt_label = confusion_matrix.index[i]
                 pred_label = confusion_matrix.columns[j]
-                rtot = row_totals[gt_label]
-                ctot = col_totals[pred_label]
-                annotations.iloc[i, j] = f"{val}\n{val}/{rtot} (GT)\n{val}/{ctot} (Pred)"
+                row_total = row_totals[gt_label]
+                col_total = col_totals[pred_label]
+                annotations.iloc[i, j] = f"{val}\n{val}/{row_total} (GT)\n{val}/{col_total} (Pred)"
 
         # Plot
         fig2, ax2 = plt.subplots(figsize=(9, 7))
         sns.heatmap(confusion_matrix, annot=annotations, fmt="", cmap="Blues", cbar=False, ax=ax2)
         ax2.set_title(
-            "GT vs Predicted | "
-            f"Acc (Pred): {accuracy_pred:.2%} | Acc (GT): {accuracy_gt:.2%} | "
-            f"FAR: {far:.2%}\n"
-            f"Correct: {correct_predictions} / Pred: {total_predicted}, GT: {total_gt} | "
-            f"FA: {false_accepts} / Attempts: {valid_attempts}"
+            f"GT vs Predicted | Acc (Pred): {accuracy_pred:.2%} | Acc (GT): {accuracy_gt:.2%} | FAR: {far:.2%}\n"
+            f"Correct: {correct_predictions} / Pred: {total_predicted}, GT: {total_gt}"
         )
         ax2.set_xlabel("Predicted Label")
         ax2.set_ylabel("Ground Truth Label")
