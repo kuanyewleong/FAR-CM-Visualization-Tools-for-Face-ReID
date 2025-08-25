@@ -396,44 +396,86 @@ if pred_files and gt_files:
     pred_data, gt_data = load_multiple_json_files(pred_files, gt_files)
     label_counts, confusion_pairs, score_groups = analyze(pred_data, gt_data, threshold)
 
-    # ---------- FAR vs Accuracy & Average Similarity plot ----------
-    # ---------- (independent of slider)
-    st.subheader("FAR vs Accuracy & Average Similarity (Fixed FAR Axis)")
+    # ---------- Accuracy & FAR vs Similarity Threshold (single plot) ----------
+    # ---------- (independent of slider)        
+    st.subheader("Accuracy & FAR vs Similarity Threshold (Single Plot)")
 
-    # Cache the precompute step so it runs only when files change
     @st.cache_data(show_spinner=False)
-    def _precompute_cached(pred_blob, gt_blob):
-        # Cache key needs to be hashable; we use lengths as a minimal differentiator.
+    def _precompute_cached_for_thresholds(pred_blob, gt_blob):
         return precompute_for_curves(pred_blob, gt_blob)
 
-    scores_np, correct_np, wrong_np, none_np = _precompute_cached(pred_data, gt_data)
+    scores_np, correct_np, wrong_np, none_np = _precompute_cached_for_thresholds(pred_data, gt_data)
 
-    far_targets = [1e-2, 1e-3, 1e-4, 1e-5, 1e-6]
-    thrs, fars, accs, means = build_far_curves(scores_np, correct_np, wrong_np, none_np, far_targets)
+    n_all = scores_np.size
+    matched_total = int((1 - none_np).sum())  # number of predictions with a GT match (IoU>=0.5)
 
-    if fars:
-        fig_fixed, ax1 = plt.subplots(figsize=(9, 5))
+    if n_all == 0 or matched_total == 0:
+        st.info("Not enough matched predictions to plot Accuracy/FAR vs threshold.")
+    else:
+        # Sort once by score (desc) and build prefix sums for matched-only metrics
+        order = np.argsort(-scores_np)
+        s  = scores_np[order]
+        c  = correct_np[order]                 # 1 for matched & correct; 0 otherwise
+        wl = wrong_np[order]                   # 1 for matched & wrong-label; 0 otherwise
+
+        cum_tp = np.cumsum(c)
+        cum_wl = np.cumsum(wl)
+
+        # Threshold grid
+        thresholds_grid = np.linspace(0.0, 1.0, 201)
+        k = np.searchsorted(-s, -thresholds_grid, side='right')  # how many accepted at each threshold
+
+        TP = np.where(k > 0, cum_tp[k - 1], 0)
+        WL = np.where(k > 0, cum_wl[k - 1], 0)
+
+        # --- FAR via compute_far(confusion_matrix) ---
+        fars = []
+        for tp_i, wl_i in zip(TP, WL):
+            # Minimal confusion matrix equivalent to full CM for FAR:
+            # diag = tp_i, off-diagonal (excluding 'unknown') = wl_i
+            cm = pd.DataFrame([[tp_i, wl_i]], index=['all'], columns=['all', 'other'])
+            fars.append(compute_far(cm, unknown_label="unknown"))
+        fars = np.array(fars, dtype=float)
+
+        # --- Accuracy (Pred) consistent with your confusion-matrix metric:
+        #     correct / total_predicted, where total_predicted counts ONLY matched predictions
+        #     (unknowns are included in the denominator as they would be column 'unknown' in the full CM)
+        acc_curve = np.where(matched_total > 0, TP / matched_total, 0.0)
+
+        # Plot
+        fig_thr, ax1 = plt.subplots(figsize=(9, 5))
         ax2 = ax1.twinx()
 
-        x = far_targets  # fixed FAR axis requested
-        ax1.semilogx(x, accs, marker='o', label="Accuracy")
-        ax2.semilogx(x, means, marker='s', linestyle='--', label="Avg Similarity")
+        fars_plot = fars.copy()
+        fars_plot[(~np.isfinite(fars_plot)) | (fars_plot <= 0)] = np.nan  # hide zeros on log axis
 
-        ax1.set_xlabel("FAR (log scale)")
-        ax1.set_ylabel("Accuracy")
-        ax2.set_ylabel("Avg Similarity")
-        ax1.set_title("Relationship Between FAR, Accuracy, and Similarity (Fixed FAR Axis)")
+        line_acc, = ax1.plot(thresholds_grid, acc_curve, label="Accuracy")
+        line_far, = ax2.semilogy(thresholds_grid, fars_plot, linestyle='--', label="FAR")
+
+        # Current slider threshold for reference only
+        ax1.axvline(threshold, linestyle=':', linewidth=1)
+        ax1.text(threshold, ax1.get_ylim()[1]*0.96, f"thr={threshold:.2f}",
+                rotation=90, va='top', ha='right', fontsize=8)
+
+        ax1.set_xlim(0.0, 1.0)
+        ax1.set_xlabel("Similarity Threshold")
+        ax1.set_ylabel("Accuracy (over matched predictions)")
+        ax2.set_ylabel("FAR (via compute_far)")
+        ax1.set_title("Accuracy & FAR vs Similarity Threshold")
         ax1.grid(True, which="both", linestyle="--", linewidth=0.5)
 
-        # (Optional) annotate achieved FAR at each point
-        for xi, fv in zip(x, fars):
-            ax1.annotate(format_scientific(fv), xy=(xi, 0.02), xytext=(0, 10),
-                         textcoords="offset points", ha="center", fontsize=8)
+        # Combined legend
+        handles = [line_acc, line_far]
+        ax1.legend(handles, [h.get_label() for h in handles], loc="best")
 
-        fig_fixed.tight_layout()
-        st.pyplot(fig_fixed)
-    else:
-        st.info("Not enough data to compute the FAR curve.")
+        fig_thr.tight_layout()
+        st.pyplot(fig_thr)
+
+        st.caption(
+            "FAR is computed with the provided compute_far(), using an equivalent confusion matrix that "
+            "contains only accepted (score ≥ threshold) matched predictions. "
+            "'unknown' and GT='none' are excluded, matching your definition."
+        )
 
 
     # Bar chart
