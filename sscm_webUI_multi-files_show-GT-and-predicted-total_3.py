@@ -164,124 +164,6 @@ def compute_far(confusion_matrix: pd.DataFrame, unknown_label: str = "unknown") 
     far = false_accepts / correct_predictions if correct_predictions > 0 else 0.0
     return far
 
-def precompute_matches(pred_data, gt_data):
-    """
-    Return a list of dicts, one per predicted face:
-    {
-      'score': float,
-      'pred_label': str,
-      'gt_label': Optional[str]  # None if no IoU>=0.5 match
-    }
-    """
-    matches = []
-    for frame in pred_data:
-        frame_id = frame["frame_id"]
-        pred_faces = frame["faces"]
-        gt_faces = gt_data[frame_id]
-        gt_matched = [False] * len(gt_faces)
-
-        for pred in pred_faces:
-            score = pred["score"]
-            pred_label = pred["label"].lower()
-            pred_bbox = pred["bbox"]
-
-            best_iou = 0.0
-            best_gt_idx = -1
-            for idx, gt in enumerate(gt_faces):
-                if gt_matched[idx]:
-                    continue
-                iou_val = iou(pred_bbox, gt["bbox"])
-                if iou_val >= 0.5 and iou_val > best_iou:
-                    best_iou = iou_val
-                    best_gt_idx = idx
-
-            if best_gt_idx != -1:
-                gt_matched[best_gt_idx] = True
-                gt_label = gt_faces[best_gt_idx]["label"].lower()
-            else:
-                gt_label = None  # no spatial match
-
-            matches.append({
-                "score": score,
-                "pred_label": pred_label,
-                "gt_label": gt_label
-            })
-    return matches
-
-
-def metrics_at_threshold(matches, threshold):
-    """
-    Build confusion pairs at a threshold and compute FAR, accuracy, mean accepted similarity.
-    'Unknown' if score<threshold.
-    """
-    pairs = []
-    accepted_scores = []
-    for m in matches:
-        if m["score"] < threshold:
-            pairs.append((m["gt_label"] if m["gt_label"] is not None else "none", "unknown"))
-        else:
-            accepted_scores.append(m["score"])
-            if m["gt_label"] is None:
-                pairs.append(("none", m["pred_label"]))
-            else:
-                pairs.append((m["gt_label"], m["pred_label"]))
-
-    if not pairs:
-        return 0.0, 0.0, 0.0  # FAR, Acc, MeanSim
-
-    df = pd.DataFrame(pairs, columns=["Ground Truth", "Predicted"])
-    gt_labels = sorted(set(df["Ground Truth"]))
-    pred_labels = sorted(set(df["Predicted"]))
-    cm = pd.crosstab(df["Ground Truth"], df["Predicted"], dropna=False).reindex(
-        index=gt_labels, columns=pred_labels, fill_value=0
-    )
-
-    # FAR
-    far = compute_far(cm, unknown_label="unknown")
-
-    # Accuracy over all predictions (including 'unknown' as wrong/ignored in confusion)
-    total = cm.sum().sum()
-    correct = sum(cm.loc[l, l] for l in cm.index if l in cm.columns)
-    acc = correct / total if total > 0 else 0.0
-
-    # Mean similarity of accepted predictions (score >= threshold)
-    mean_sim = (sum(accepted_scores) / len(accepted_scores)) if accepted_scores else 0.0
-    return far, acc, mean_sim
-
-
-def threshold_for_target_far(matches, target_far):
-    """
-    Choose a threshold that achieves FAR just <= target_far.
-    Evaluates at unique score values plus 0 and 1.
-    """
-    if not matches:
-        return None, 0.0, 0.0, 0.0  # threshold, FAR, Acc, MeanSim
-
-    unique_scores = sorted({m["score"] for m in matches})
-    # Evaluate at boundaries too
-    candidates = [0.0] + unique_scores + [1.0]
-
-    # best = None  # (abs_diff, far, acc, mean_sim, thr)
-    chosen = None
-
-    # Prefer FAR <= target, but fall back to the closest if none are <= target
-    best_le = None  # best solution with FAR <= target (pick the one closest to target but not exceeding)
-    best_any = None  # absolute closest if all > target
-
-    for thr in candidates:
-        far, acc, mean_sim = metrics_at_threshold(matches, thr)
-        diff = abs(far - target_far)
-        tup = (diff, far, acc, mean_sim, thr)
-        if far <= target_far:
-            if (best_le is None) or (far > best_le[1]) or (far == best_le[1] and thr > best_le[4]):
-                best_le = tup
-        if (best_any is None) or (diff < best_any[0]):
-            best_any = tup
-
-    chosen = best_le if best_le is not None else best_any
-    _, far, acc, mean_sim, thr = chosen
-    return thr, far, acc, mean_sim
-
 
 def precompute_for_curves(pred_data, gt_data):
     """
@@ -331,48 +213,6 @@ def precompute_for_curves(pred_data, gt_data):
             np.array(gt_is_none, dtype=bool))
 
 
-def build_far_curves(scores, correct, wrong_labeled, gt_is_none, far_targets):
-    """
-    Compute Accuracy and AvgSimilarity at thresholds chosen to hit each FAR target.
-    Uses cumulative sums over scores sorted desc — fast & slider‑independent.
-    """
-    n = scores.size
-    if n == 0:
-        return [], [], [], []
-
-    # Sort by score desc
-    order = np.argsort(-scores)
-    s = scores[order]
-    c = correct[order].astype(np.int64)
-    wl = wrong_labeled[order].astype(np.int64)
-    gn = gt_is_none[order].astype(np.int64)
-
-    # Cumulative stats for the accepted set at each prefix k (threshold = s[k-1])
-    cum_tp = np.cumsum(c)                  # true accepts (correct)
-    cum_fa = np.cumsum(wl + gn)            # false accepts (wrong labels + "none")
-    cum_sum_scores = np.cumsum(s)
-
-    # Metrics for each prefix k (1..n)
-    with np.errstate(divide='ignore', invalid='ignore'):
-        far_arr = np.where(cum_tp > 0, cum_fa / cum_tp, np.inf)
-    acc_arr = cum_tp / float(n)            # accuracy over ALL predictions (like your metric)
-    mean_sim_arr = cum_sum_scores / np.arange(1, n + 1)
-
-    # For each FAR target, pick the last k with FAR<=target; else the closest FAR
-    thrs, fars, accs, means = [], [], [], []
-    for ft in far_targets:
-        ok = np.where(far_arr <= ft)[0]
-        if ok.size > 0:
-            k = ok[-1]                     # as permissive as possible within target FAR
-        else:
-            k = int(np.argmin(np.abs(far_arr - ft)))
-        thrs.append(s[k])
-        fars.append(float(far_arr[k] if np.isfinite(far_arr[k]) else 0.0))
-        accs.append(float(acc_arr[k]))
-        means.append(float(mean_sim_arr[k]))
-    return thrs, fars, accs, means
-
-
 # Formatting helper
 def format_scientific(value):
     formatted = "{:.2e}".format(value)       # e.g. "1.93e-04"
@@ -397,7 +237,7 @@ if pred_files and gt_files:
     label_counts, confusion_pairs, score_groups = analyze(pred_data, gt_data, threshold)
 
     # ---------- Accuracy & FAR vs Similarity Threshold (single plot) ----------
-    # ---------- (independent of slider)        
+    # ---------- (independent of similarity score slider)        
     st.subheader("Accuracy & FAR vs Similarity Threshold (Single Plot)")
 
     @st.cache_data(show_spinner=False)
@@ -445,22 +285,22 @@ if pred_files and gt_files:
         # Plot
         fig_thr, ax1 = plt.subplots(figsize=(9, 5))
         ax2 = ax1.twinx()
+        # Replace invalid or negative values with exact zeros (FAR line should stay at 0)
+        fars_plot = np.nan_to_num(fars, nan=0.0, posinf=0.0, neginf=0.0)
 
-        fars_plot = fars.copy()
-        fars_plot[(~np.isfinite(fars_plot)) | (fars_plot <= 0)] = np.nan  # hide zeros on log axis
-
+        # Plot FAR normally — allow zeros on log scale by setting non-log axis temporarily
+        line_far, = ax2.plot(thresholds_grid, fars_plot, linestyle='--', label="FAR", color='tab:orange')
         line_acc, = ax1.plot(thresholds_grid, acc_curve, label="Accuracy")
-        line_far, = ax2.semilogy(thresholds_grid, fars_plot, linestyle='--', label="FAR")
 
         # Current slider threshold for reference only
         ax1.axvline(threshold, linestyle=':', linewidth=1)
         ax1.text(threshold, ax1.get_ylim()[1]*0.96, f"thr={threshold:.2f}",
                 rotation=90, va='top', ha='right', fontsize=8)
 
-        ax1.set_xlim(0.0, 1.0)
+        ax1.set_xlim(0.0, 1.0)        
         ax1.set_xlabel("Similarity Threshold")
         ax1.set_ylabel("Accuracy (over matched predictions)")
-        ax2.set_ylabel("FAR (via compute_far)")
+        ax2.set_ylabel("FAR")
         ax1.set_title("Accuracy & FAR vs Similarity Threshold")
         ax1.grid(True, which="both", linestyle="--", linewidth=0.5)
 
