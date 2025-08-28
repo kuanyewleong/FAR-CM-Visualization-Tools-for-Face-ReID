@@ -239,7 +239,7 @@ if pred_files and gt_files:
 
     # ---------- Accuracy & FAR vs Similarity Threshold ----------
     # ---------- (independent of similarity score slider)        
-    st.subheader("Accuracy & FAR vs Similarity Threshold (independent of similarity score slider)")
+    st.subheader("Accuracy & FAR vs Similarity Threshold")
 
     @st.cache_data(show_spinner=False)
     def _precompute_cached_for_thresholds(pred_blob, gt_blob):
@@ -286,54 +286,69 @@ if pred_files and gt_files:
         # Plot
         fig_thr, ax1 = plt.subplots(figsize=(9, 5))
         ax2 = ax1.twinx()
-        
+
         # Replace invalid or negative values with exact zeros (FAR line should stay at 0)
         fars_plot = np.nan_to_num(fars, nan=0.0, posinf=0.0, neginf=0.0)
 
         # Plot FAR normally — allow zeros on log scale by setting non-log axis temporarily
-        line_far, = ax2.plot(thresholds_grid, fars_plot, linestyle='--', label="FAR", color='tab:orange')
+        line_far, = ax2.plot(thresholds_grid, fars_plot, linestyle='--', label="FAR", color='tab:green')
         line_acc, = ax1.plot(thresholds_grid, acc_curve, label="Accuracy")
 
         # Current slider threshold for reference only
-        ax1.axvline(threshold, linestyle=':', linewidth=1)
+        ax1.axvline(threshold, linestyle=':', linewidth=1, color='tab:red')
         ax1.text(threshold, ax1.get_ylim()[1]*0.96, f"thr={threshold:.2f}",
                 rotation=90, va='top', ha='right', fontsize=8)
 
         ax1.set_xlim(0.0, 1.0)        
         ax1.set_xlabel("Similarity Threshold")
-        ax1.set_ylabel("Accuracy (over matched predictions)")        
+        ax1.set_ylabel("Accuracy (over matched predictions)", color='tab:blue')        
         ax1.set_title("Accuracy & FAR vs Similarity Threshold")
-        ax1.grid(True, which="both", linestyle="--", linewidth=0.5)        
+        ax1.grid(True, which="both", linestyle="--", linewidth=0.5)
 
-        ax2.set_ylabel("FAR")
-        far_ticks = ax2.get_yticks()
-        formatted_labels = [format_scientific(val) if val > 0 else "0" for val in far_ticks]
+        # Set x-axis ticks with 0.1 interval
+        x_ticks = np.arange(0.0, 1.1, 0.1)  # 0.0, 0.1, 0.2, ..., 1.0
+        ax1.set_xticks(x_ticks)
+
+        ax2.set_ylabel("FAR", color='tab:green')
+        # Set logarithmic scale for FAR-axis to evenly space the ticks
+        ax2.set_yscale('log')
+
+        # Set exact ticks for FAR-axis (all required ticks will be evenly spaced on log scale)
+        far_ticks = [1e-6, 1e-5, 1e-4, 1e-3, 1e-2]
+        far_labels = ['1e-6', '1e-5', '1e-4', '1e-3', '1e-2']
+
+        # Handle the special case of 0 - we'll add it manually
+        # For log scale, we can't have 0, so we'll position it at the bottom
+        # and use a custom formatter or add it as a special tick
         ax2.set_yticks(far_ticks)
-        ax2.set_yticklabels(formatted_labels)
+        ax2.set_yticklabels(far_labels)
 
-        # Align zero points on both y-axes
+        # Add a special annotation for 0 at the bottom of the axis
+        # We'll position it at the minimum value that makes sense for log scale
+        min_log_value = 1e-7  # Position slightly below 1e-6
+        ax2.text(1.02, min_log_value, '0', transform=ax2.transAxes, 
+                ha='left', va='bottom', fontsize=plt.rcParams['ytick.labelsize'])
+
+        # Set the y-axis limits to include all our ticks with some padding
+        ax2.set_ylim(bottom=min_log_value, top=2e-2)  # Slightly above 1e-2
+
+        # Align zero points on both y-axes (for the main axis)
         ax1.set_ylim(bottom=0.0)
-        ax2.set_ylim(bottom=0.0)
-        
+
         # Get the current limits to ensure proper alignment
         y1_min, y1_max = ax1.get_ylim()
-        y2_min, y2_max = ax2.get_ylim()
-        
-        # Calculate the ratio to align the zeros
-        if y1_max > 0 and y2_max > 0:
-            # Set both axes to have the same relative scale from 0 to max
-            # This ensures the zero points align
-            ax1.set_ylim(0, y1_max)
-            ax2.set_ylim(0, y2_max)
-        
+
         # Make the x-axis less obtrusive
         ax1.spines['bottom'].set_color('gray')
         ax1.spines['bottom'].set_linewidth(0.2)
         ax1.spines['bottom'].set_alpha(0.5)
-        
+
         # Add a subtle grid line at y=0 for both axes to emphasize the baseline
         ax1.axhline(y=0, color='gray', linestyle='-', linewidth=0.2, alpha=0.3)
-        
+
+        # Add grid for the log scale on FAR-axis
+        ax2.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.3)
+
         # Alternative approach: Use z-ordering to ensure data is on top
         for line in ax1.get_lines():
             line.set_zorder(10)
