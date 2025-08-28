@@ -1,11 +1,12 @@
 import json
 import re
 import numpy as np
+import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
 import seaborn as sns
 from collections import Counter, defaultdict
-import pandas as pd
+
 
 # ---------- Bounding box IoU ----------
 def iou(boxA, boxB):
@@ -236,9 +237,9 @@ if pred_files and gt_files:
     pred_data, gt_data = load_multiple_json_files(pred_files, gt_files)
     label_counts, confusion_pairs, score_groups = analyze(pred_data, gt_data, threshold)
 
-    # ---------- Accuracy & FAR vs Similarity Threshold (single plot) ----------
+    # ---------- Accuracy & FAR vs Similarity Threshold ----------
     # ---------- (independent of similarity score slider)        
-    st.subheader("Accuracy & FAR vs Similarity Threshold (Single Plot)")
+    st.subheader("Accuracy & FAR vs Similarity Threshold (independent of similarity score slider)")
 
     @st.cache_data(show_spinner=False)
     def _precompute_cached_for_thresholds(pred_blob, gt_blob):
@@ -299,10 +300,18 @@ if pred_files and gt_files:
 
         ax1.set_xlim(0.0, 1.0)        
         ax1.set_xlabel("Similarity Threshold")
-        ax1.set_ylabel("Accuracy (over matched predictions)")
-        ax2.set_ylabel("FAR")
+        ax1.set_ylabel("Accuracy (over matched predictions)")        
         ax1.set_title("Accuracy & FAR vs Similarity Threshold")
-        ax1.grid(True, which="both", linestyle="--", linewidth=0.5)
+        ax1.grid(True, which="both", linestyle="--", linewidth=0.5)        
+
+        ax2.set_ylabel("FAR")
+        far_ticks = ax2.get_yticks()
+        formatted_labels = [format_scientific(val) if val > 0 else "0" for val in far_ticks]
+        ax2.set_yticks(far_ticks)
+        ax2.set_yticklabels(formatted_labels)
+
+        ax1.set_ylim(bottom=0.0)
+        ax2.set_ylim(bottom=0.0)
 
         # Combined legend
         handles = [line_acc, line_far]
