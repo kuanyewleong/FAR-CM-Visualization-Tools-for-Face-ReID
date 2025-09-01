@@ -446,15 +446,15 @@ if pred_files and gt_files:
         )
         extend_option = st.selectbox(
             "Extrapolation method",
-            ("clamp", "extrapolate"),
-            help=(
-                "• Clamp: restricts the threshold to the fitted range.\n"
-                "• Extrapolate: extends the fitted curve beyond the range."
+            ("extrapolate", "clamp"),
+            help=(                
+                "• Extrapolate: extends the fitted curve beyond the range.\n"
+                "• Clamp: restricts the threshold to the fitted range."
             )
         )
         extend_map = {
-            "clamp": "clamp",
             "extrapolate": "extrapolate",
+            "clamp": "clamp",
         }
         extend = extend_map[extend_option]
 
