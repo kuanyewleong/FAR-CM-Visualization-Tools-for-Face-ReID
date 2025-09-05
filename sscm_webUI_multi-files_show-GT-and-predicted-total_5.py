@@ -1,5 +1,6 @@
 import json
 import re
+import uuid
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -227,9 +228,36 @@ st.set_page_config(layout="wide")
 st.title("Face Recognition Analysis Tool")
 
 # File upload UI
+# ---------- Initialize keys for widgets ----------
+if 'pred_key' not in st.session_state:
+    st.session_state.pred_key = str(uuid.uuid4())
+if 'gt_key' not in st.session_state:
+    st.session_state.gt_key = str(uuid.uuid4())
+
+# ---------- Sidebar UI ----------
 st.sidebar.header("Upload JSON Files")
-pred_files = st.sidebar.file_uploader("Upload Prediction JSON Files", type="json", accept_multiple_files=True)
-gt_files = st.sidebar.file_uploader("Upload Ground Truth JSON Files", type="json", accept_multiple_files=True)
+
+# --- Prediction JSON Files ---
+st.sidebar.subheader("Prediction Files")
+pred_files = st.sidebar.file_uploader(
+    "Upload Prediction JSON Files", 
+    type="json", 
+    accept_multiple_files=True, 
+    key=st.session_state.pred_key
+)
+if st.sidebar.button("Clear Prediction Files"):
+    st.session_state.pred_key = str(uuid.uuid4())  # change key to reset uploader
+
+# --- Ground Truth JSON Files ---
+st.sidebar.subheader("Ground Truth Files")
+gt_files = st.sidebar.file_uploader(
+    "Upload Ground Truth JSON Files", 
+    type="json", 
+    accept_multiple_files=True, 
+    key=st.session_state.gt_key
+)
+if st.sidebar.button("Clear Ground Truth Files"):
+    st.session_state.gt_key = str(uuid.uuid4())  # change key to reset uploader
 
 threshold = st.slider("Score Threshold", 0.000, 1.000, 0.500, step=0.001, format="%.3f")
 
@@ -508,3 +536,60 @@ if pred_files and gt_files:
             st.info("No score data to display in normalized form.")    
 else:
     st.info("Please upload **multiple ground truth** and **prediction JSON files** to begin.")
+
+
+# ---------- Export Figures ----------
+import os
+from pathlib import Path
+
+st.subheader("Export figures")
+
+# User input: folder and base filename
+save_dir = st.text_input("Save folder (server-side)", value="exports")
+base_name = st.text_input("Base filename (e.g. 'plot')", value="figure")
+img_fmt   = st.selectbox("Format", ["png", "pdf", "svg"], index=0)
+dpi = st.slider("DPI (for raster formats)", 50, 600, 200, step=50)
+
+# Predefined postfix names for each figure
+FIGURE_POSTFIXES = [
+    "acc_far_vs_similarity",
+    "label_counts",
+    "cm",
+    "raw_hist",
+    "norm_hist"
+]
+
+def save_all_matplotlib_figures(directory, base, postfixes, fmt="png", dpi=200):
+    """
+    Saves open Matplotlib figures to 'directory' with predefined postfix names.
+    Example: {base}_{postfix}.{fmt}
+    """
+    Path(directory).mkdir(parents=True, exist_ok=True)
+    saved = []
+    fig_nums = sorted(plt.get_fignums())
+    for num, postfix in zip(fig_nums, postfixes):
+        fig = plt.figure(num)
+        filename = f"{base}_{postfix}.{fmt}"
+        filepath = os.path.join(directory, filename)
+        save_kwargs = {"bbox_inches": "tight"}
+        if fmt.lower() in ("png", "jpg", "jpeg", "tif", "tiff", "webp"):
+            save_kwargs["dpi"] = dpi
+        fig.savefig(filepath, **save_kwargs)
+        saved.append(filepath)
+    return saved
+
+# Button to trigger saving
+if st.button("💾 Save all plots"):
+    saved_list = save_all_matplotlib_figures(
+        directory=save_dir,
+        base=base_name,
+        postfixes=FIGURE_POSTFIXES,
+        fmt=img_fmt,
+        dpi=dpi
+    )
+    if not saved_list:
+        st.warning("No open Matplotlib figures were found.")
+    else:
+        st.success(f"Saved {len(saved_list)} figure(s) to: {save_dir}")
+        for path in saved_list:
+            st.write(f"• `{path}`")
