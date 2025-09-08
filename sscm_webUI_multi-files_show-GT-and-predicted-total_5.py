@@ -407,17 +407,28 @@ if pred_files and gt_files:
     col1, col2 = st.columns([2, 2])
     with col1:
         st.subheader("Label Counts")
+
+        # Reorder labels so "unknown" is always last
         labels = list(label_counts.keys())
         counts = list(label_counts.values())
+        if "unknown" in labels:
+            idx = labels.index("unknown")
+            # move "unknown" to the end
+            labels.append(labels.pop(idx))
+            counts.append(counts.pop(idx))
+
         fig, ax = plt.subplots(figsize=(8, 6))
         bars = ax.bar(labels, counts)
         ax.set_xlabel("Labels")
         ax.set_ylabel("Count")
         ax.set_title(f"Score Threshold: {threshold:.2f}")
+
         for bar, count in zip(bars, counts):
             ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height(),
                     str(count), ha='center', va='bottom')
+
         st.pyplot(fig)
+
 
     # Confusion Matrix & FAR
     with col2:
@@ -464,15 +475,19 @@ if pred_files and gt_files:
                 pred_label = confusion_matrix.columns[j]
                 row_total = row_totals[gt_label]
                 col_total = col_totals[pred_label]
-                annotations.iloc[i, j] = f"{val}\n{val}/{row_total} (GT)\n{val}/{col_total} (Pred)"
+                annotations.iloc[i, j] = f"{val}"
 
         # Plot
         fig2, ax2 = plt.subplots(figsize=(9, 7))
         sns.heatmap(confusion_matrix, annot=annotations, fmt="", cmap="Blues", cbar=False, ax=ax2)
         ax2.set_title(
-            f"GT vs Predicted | Acc (Pred): {accuracy_pred:.2%} | Acc (GT): {accuracy_gt:.2%} | FAR: {format_scientific(far)}\n"
-            f"Correct: {correct_predictions} / Pred: {total_predicted}, GT: {total_gt}"
+            f"GT vs Predicted: \n"
+            f"Acc: {accuracy_pred:.2%} ({correct_predictions} / {total_gt}) | FAR: {format_scientific(far)}"
         )
+        # ax2.set_title(
+        #     f"GT vs Predicted | Acc (Pred): {accuracy_pred:.2%} | Acc (GT): {accuracy_gt:.2%} | FAR: {format_scientific(far)}\n"
+        #     f"Correct: {correct_predictions} / Pred: {total_predicted}, GT: {total_gt}"
+        # )
         ax2.set_xlabel("Predicted Label")
         ax2.set_ylabel("Ground Truth Label")
         st.pyplot(fig2)
@@ -548,7 +563,7 @@ st.subheader("Export figures")
 save_dir = st.text_input("Save folder (server-side)", value="exports")
 base_name = st.text_input("Base filename (e.g. 'plot')", value="figure")
 img_fmt   = st.selectbox("Format", ["png", "pdf", "svg"], index=0)
-dpi = st.slider("DPI (for raster formats)", 50, 600, 200, step=50)
+dpi = st.slider("DPI (for raster formats)", 50, 600, 150, step=50)
 
 # Predefined postfix names for each figure
 FIGURE_POSTFIXES = [
@@ -559,7 +574,7 @@ FIGURE_POSTFIXES = [
     "norm_hist"
 ]
 
-def save_all_matplotlib_figures(directory, base, postfixes, fmt="png", dpi=200):
+def save_all_matplotlib_figures(directory, base, postfixes, fmt="png", dpi=150):
     """
     Saves open Matplotlib figures to 'directory' with predefined postfix names.
     Example: {base}_{postfix}.{fmt}
