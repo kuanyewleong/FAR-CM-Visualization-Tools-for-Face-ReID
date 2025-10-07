@@ -47,7 +47,7 @@ def process_json_files(input_folder, output_folder=None, overwrite=False):
         print(f"Processed: {json_file} → {output_path}")
 
 # Example usage:
-input_dir = "analysis_results/faceme_output/VH11/5pe_right"
+input_dir = "analysis_results/faceme_output/VH11_M/3pc_left"
 output_dir = None #"path/to/output_folder"  # Set to None if you want in-place modification (with overwrite=True)
 
 process_json_files(input_dir, output_dir, overwrite=True)
